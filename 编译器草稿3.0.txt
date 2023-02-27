@@ -1,0 +1,396 @@
+
+```c
+#define _CRT_SECURE_NO_WARNINGS
+#include"node.h"
+#define MAXKEY 1000
+int hash(char*key) {
+	int h = 0, g;
+	while (*key) {
+		h = (h << 4) + *key++;
+		g = h & 0xf0000000;
+		if (g)
+			h ^= g >> 24;
+		h &= ~g;
+	}
+	return h % MAXKEY;
+}
+void insertHashTable(pNode_t*hashTable, pNode_t pnode) {
+	int hashValue = hash(pnode->pWord);
+	if (hashTable[hashValue] == NULL) {
+		hashTable[hashValue] = pnode;
+	}
+	else {
+		pnode->pNext = hashTable[hashValue];//pHead就是hashValue
+		hashTable[hashValue] = pnode;
+	}
+}
+void findHashTable(pNode_t*hashTable, pNode_t pinsert) {
+	int hashValue = hash(pinsert->pWord);
+	if (hashTable[hashValue] == NULL) {
+		insertHashTable(hashTable, pinsert);//未发生冲突的时候
+	}
+	else {
+		pNode_t pCur = hashTable[hashValue];//发生冲突后
+		while (pCur) {
+			if (strcmp(pCur->pWord, pinsert->pWord) == 0) {
+				pinsert->tokenCode = pCur->tokenCode;
+				break;
+			}
+			pCur = pCur->pNext;//继续遍历这个hashTable[hashValue]
+		}
+		if (pCur == NULL) {
+			insertHashTable(hashTable, pinsert);//pCur为NULL之后插入到该队列中
+		}
+	}
+}
+void wordTailInsert(pWordNode_t *ppHead, pWordNode_t*ppTail, pNode_t ptokenNode) {
+	pWordNode_t pNew = (pWordNode_t)calloc(1, sizeof(WordNode_t));
+	pNew->ptokenNode = ptokenNode;
+	if (*ppHead == NULL) {
+		*ppHead = pNew;
+		*ppTail = pNew;
+	}
+	else {
+		(*ppTail)->pnext = pNew;
+		*ppTail = pNew;
+	}
+}
+void printWordList(pWordNode_t pHead) {
+	HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);//打印字体彩色的函数
+	pWordNode_t pCur = pHead;
+	while (pCur) {
+		if (pCur->ptokenNode->tokenCode <= TK_EOF) {
+			SetConsoleTextAttribute(h, FOREGROUND_RED | FOREGROUND_INTENSITY);
+		}
+		else if (pCur->ptokenNode->tokenCode >= KW_CHAR && pCur->ptokenNode->tokenCode <= KW_STDCALL) {
+			SetConsoleTextAttribute(h, FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+		}
+		else if (pCur->ptokenNode->tokenCode >= TK_CINT && pCur->ptokenNode->tokenCode <= TK_CSTR) {
+			SetConsoleTextAttribute(h, FOREGROUND_RED | FOREGROUND_GREEN);
+		}
+		else {
+			SetConsoleTextAttribute(h, FOREGROUND_INTENSITY);
+		}
+		printf("%s", pCur->ptokenNode->pWord);
+		pCur = pCur->pnext;
+	}
+}
+void alp2word(FILE *fp, pNode_t pnode) {//字符变成单词
+	char ch = fgetc(fp);
+	++i;
+	char*word = (char*)calloc(30, 1);
+	int wordPos = 0;
+	pnode->pWord = word;//wor是内存地址不是内容，之后修改的是内存的内容，这样之后修改的内容也会修改
+	// + += 标识符 整型常量 空白 浮点型常量
+	pnode->tokenCode = TK_IDENT;
+	if (ch == '+') {
+		word[wordPos++] = ch;//先传值再加加
+		ch = fgetc(fp);
+		++i;
+		if (ch == '=') {
+			word[wordPos] = ch;//wordPos现在为2
+			return;
+		}
+		--i;
+		fseek(fp, -1, SEEK_CUR);
+		fseek(fp, 0, SEEK_CUR);
+		return;
+		pnode->tokenCode = TK_CSTR;
+	}
+	else if (ch == ' ' || ch == '\n'||ch =='\t') {
+		word[wordPos++] = ch;//先传值再加加，现在为0
+		pnode->tokenCode = -1;
+		return;
+		pnode->tokenCode = TK_CSTR;
+	}
+	else if (ch == '_' || ch >= 'a'&&ch <= 'z' || ch >= 'A'&&ch <= 'Z') {
+		word[wordPos++] = ch;
+		ch = fgetc(fp);
+		++i;
+		while (ch == "_" || ch >= 'a'&&ch <= 'z' || ch >= 'A'&&ch <= 'Z' || ch >= '0'&&ch <= '9') {
+			word[wordPos++] = ch;
+			ch = fgetc(fp);
+			++i;
+		}
+		--i;
+		fseek(fp, -1, SEEK_CUR);
+		fseek(fp, 0, SEEK_CUR);
+		return;
+		pnode->tokenCode = TK_CSTR;
+	}
+	else if (ch >= '0'&&ch <= '9') {
+		word[wordPos++] = ch;
+		ch = fgetc(fp);
+		++i;
+		while (ch >= '0'&&ch <= '9') {
+			word[wordPos++] = ch;
+			ch = fgetc(fp);
+			++i;
+		}
+		if (ch == '.') {
+			word[wordPos++] = ch;
+			ch = fgetc(fp);
+			++i;
+			while (ch >= '0'&&ch <= '9') {
+				word[wordPos++] = ch;
+				ch = fgetc(fp);
+				++i;
+			}
+		}
+		--i;
+		fseek(fp, -1, SEEK_CUR);
+		fseek(fp, 0, SEEK_CUR);
+		pnode->tokenCode = TK_CSTR;
+		return;
+	}
+	else if (ch == '"') {
+		word[wordPos++] = ch;//先传值再加加
+		ch = fgetc(fp);
+		++i;
+		while ((ch =='*') || (ch >= 'a' && ch <= 'z')||(ch =='*')||(ch>='A')&&(ch<='Z')){
+			word[wordPos++] = ch;
+			ch = fgetc(fp);
+			++i;
+		}
+		--i;
+		fseek(fp, -1, SEEK_CUR);
+		fseek(fp, 0, SEEK_CUR);
+		pnode->tokenCode = TK_CSTR;
+		return;
+	}
+	else if (ch == '(') {
+		word[wordPos++] = ch;
+		pnode->tokenCode = TK_CSTR;
+		return;
+	}
+	else if (ch == ')') {
+		word[wordPos++] = ch;
+		return;
+	}
+	else if (ch == '<') {
+		word[wordPos++] = ch;
+		ch = fgetc(fp);
+		++i;
+		if (ch == '=') {
+			word[wordPos] = ch;
+			return;
+		}
+		--i;
+		fseek(fp, -1, SEEK_CUR);
+		fseek(fp, 0, SEEK_CUR);
+		pnode->tokenCode = TK_CSTR;
+		return;
+	}
+	else if (ch == '>') {
+		word[wordPos++] = ch;
+		ch = fgetc(fp);
+		++i;
+		if (ch == '=') {
+			word[wordPos] = ch;
+			return;
+		}
+		--i;
+		fseek(fp, -1, SEEK_CUR);
+		fseek(fp, 0, SEEK_CUR);
+		pnode->tokenCode = TK_CSTR;
+		return;
+	}
+	else if (ch == '{') {
+		word[wordPos++] = ch;
+		pnode->tokenCode = TK_CSTR;
+		return;
+	}
+	else if (ch == '}') {
+		word[wordPos++] = ch;
+		pnode->tokenCode = TK_CSTR;
+		return;
+	}
+	else if (ch == '[') {
+		word[wordPos++] = ch;
+		pnode->tokenCode = TK_CSTR;
+		return;
+	}
+	else if (ch == ']') {
+		word[wordPos++] = ch;
+		pnode->tokenCode = TK_CSTR;
+		return;
+	}
+	else if (ch == ';') {
+		word[wordPos++] = ch;
+		pnode->tokenCode = TK_CSTR;
+		return;
+	}
+	else if (ch == '.') {
+		word[wordPos++] = ch;
+		pnode->tokenCode = TK_CSTR;
+		return;
+	}
+	else if (ch == '\'') {
+		word[wordPos++] = ch;
+		pnode->tokenCode = TK_CSTR;
+		return;
+	}
+	else if (ch == '：') {
+		word[wordPos++] = ch;
+		pnode->tokenCode = TK_CSTR;
+		return;
+	}
+	else if (ch == '*') {
+		word[wordPos++] = ch;
+		pnode->tokenCode = TK_CSTR;
+		return;
+	}
+	else if (ch == '/') {
+		word[wordPos++] = ch;
+		pnode->tokenCode = TK_CSTR;
+		return;
+	}
+	else if (ch == '%') {
+		word[wordPos++] = ch;
+		pnode->tokenCode = TK_CSTR;
+		return;
+	}
+	else if (ch == '！') {
+		word[wordPos++] = ch;
+		ch = fgetc(fp);
+		++i;
+		if (ch == '=') {
+			word[wordPos] = ch;
+			return;
+		}
+		--i;
+		fseek(fp, -1, SEEK_CUR);
+		fseek(fp, 0, SEEK_CUR);
+		pnode->tokenCode = TK_CSTR;
+		return;
+	}
+	else if (ch == '=') {
+		word[wordPos++] = ch;
+		ch = fgetc(fp);
+		++i;
+		if (ch == '=') {
+			word[wordPos] = ch;
+			return;
+		}
+		--i;
+		fseek(fp, -1, SEEK_CUR);
+		fseek(fp, 0, SEEK_CUR);
+		pnode->tokenCode = TK_CSTR;
+		return;
+	}
+	else if (ch == '-') {
+		word[wordPos++] = ch;
+		ch = fgetc(fp);
+		++i;
+		if (ch == '>') {
+			word[wordPos] = ch;
+			return;
+		}
+		--i;
+		fseek(fp, -1, SEEK_CUR);
+		fseek(fp, 0, SEEK_CUR);
+		pnode->tokenCode = TK_CSTR;
+		return;
+	}
+	else if (ch == '&') {
+		word[wordPos++] = ch;
+		pnode->tokenCode = TK_CSTR;
+		return;
+	}
+	else if (ch == '...') {
+		word[wordPos++] = ch;
+		pnode->tokenCode = TK_CSTR;
+		return;
+	}
+	else if (ch == '#') {
+	word[wordPos++] = ch;
+	pnode->tokenCode = TK_CSTR;
+	return;
+	}
+}
+	int main() {
+		pNode_t hashTable[MAXKEY] = { 0 };//初始化hashtable，hashtable是一个存储指向Node_t的指针的数组
+		Node_t preinsert[] = {//preinsert是一个存储Node_t的数组
+			{TK_PLUS,NULL,"+"},
+			{TK_MINUS,NULL,"-"},
+			{TK_STAR,NULL,"*"},
+			{TK_DIVIDE,NULL,"/"},
+			{TK_MOD,NULL,"%"},
+			{TK_EQ,NULL,"=="},
+			{TK_NEQ,NULL,"!="},
+			{TK_LT,NULL,"<"},
+			{TK_LEQ,NULL,"<="},
+			{TK_GT,NULL,">"},
+			{TK_GEQ,NULL,">="},
+			{TK_ASSIGN,NULL,"="},
+			{TK_POINTSTO,NULL,"->"},
+			{TK_DOT,NULL,"."},
+			{TK_AND,NULL,"&"},
+			{TK_OPENPA,NULL,"("},
+			{TK_CLOSEPA,NULL,")"},
+			{TK_OPENBR,NULL,"["},
+			{TK_CLOSEBR,NULL,"]"},
+			{TK_BEGIN,NULL,"{"},
+			{TK_END,NULL,"}"},
+			{TK_SEMICOLON,NULL,";"},
+			{TK_COMMA,NULL,","},
+			{TK_ELLIPSIS,NULL,"..."},
+			{TK_EOF,NULL,"End_Of_File"},
+			{TK_CINT,NULL,"整型常量"},
+			{TK_CCHAR,NULL,"字符常量"},
+			{TK_CSTR,NULL,"字符串常量"},
+			{KW_CHAR,NULL,"char"},
+			{KW_SHORT,NULL,"short"},
+			{KW_INT,NULL,"int"},
+			{KW_VOID,NULL,"void"},
+			{KW_STRUCT,NULL,"struct"},
+			{KW_IF,NULL,"if"},
+			{KW_ELSE,NULL,"else"},
+			{KW_FOR,NULL,"for"},
+			{KW_CONTINUE,NULL,"continue"},
+			{KW_BREAK,NULL,"break"},
+			{KW_RETURN,NULL,"return"},
+			{KW_SIZEOF,NULL,"sizeof"},
+			{KW_ALIGN,NULL,"__align"},
+			{KW_CDECL,NULL,"__cdecl"},
+			{KW_STDCALL,NULL,"__stdcall"}
+		};
+		for (int i = 0; i < sizeof(preinsert) / sizeof(Node_t); ++i) {
+			insertHashTable(hashTable, &preinsert[i]);
+		}//初始化哈希表
+		pWordNode_t pHead = NULL;
+		pWordNode_t pTail = NULL;
+		//Node_t node1 = { TK_IDENT,NULL,"int" };
+		//findHashTable(hashTable, &node1);
+		//Node_t node2 = { TK_IDENT,NULL,"main" };
+		//findHashTable(hashTable, &node2);
+		//Node_t node3 = { TK_IDENT,NULL,"(" };
+		//findHashTable(hashTable, &node3);
+		//Node_t node4 = { TK_IDENT,NULL,")" };
+		//findHashTable(hashTable, &node4);
+		/*char file[] = "int a += 1.2 +123";*/
+	//char str1[][20] = { 0 };
+	//printf("请输入文件名:");
+	//while (scanf("%s", str1) != EOF) {}//等待要词法分析的文件名输入
+	///*pNode_t pNew1 = str1;*/
+	////pNew1->pNext = NULL;
+	FILE *fp;
+	fp = fopen("2.txt", "r+");
+	fseek(fp, 0, SEEK_END);
+	fseek(fp, 0, SEEK_CUR);
+	int len = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+	while (i<len) {
+		pNode_t pnode = (pNode_t)calloc(1, sizeof(Node_t));
+		alp2word(fp,pnode);
+		findHashTable(hashTable, pnode);
+		wordTailInsert(&pHead, &pTail, pnode);
+	}
+	//wordTailInsert(&pHead, &pTail, &node1);
+	//wordTailInsert(&pHead, &pTail, &node2);
+	//wordTailInsert(&pHead, &pTail, &node3);
+	//wordTailInsert(&pHead, &pTail, &node4);
+	printWordList(pHead);
+	
+}
+```
